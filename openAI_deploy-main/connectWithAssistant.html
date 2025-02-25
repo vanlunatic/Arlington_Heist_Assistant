@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenAI Assistant Chat</title>
+  <!-- Include Marked.js from CDN for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY";  // Replace with your API Key
+    const ASSISTANT_ID = "YOUR_ASSISTANT_ID";        // Replace with your Assistant ID
+
+    async function sendMessage() {
+      const userMessage = document.getElementById("user-input").value;
+      const chatBox = document.getElementById("chat-box");
+
+      if (!userMessage.trim()) return;  // Ignore empty messages
+
+      chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
+      document.getElementById("user-input").value = "";
+
+      try {
+        // 1️⃣ Create a new conversation thread
+        const threadResponse = await fetch("https://api.openai.com/v1/threads", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+            "OpenAI-Beta": "assistants=v2"
+          }
+        });
+        const threadData = await threadResponse.json();
+        const threadId = threadData.id;
+        console.log("Thread created with ID:", threadId);
+
+        // 2️⃣ Add the user message to the thread
+        await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+            "OpenAI-Beta": "assistants=v2"
+          },
+          body: JSON.stringify({
+            role: "user",
+            content: userMessage
+          })
+        });
+        console.log("User message added.");
+
+        // 3️⃣ Start the assistant run
+        const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+            "OpenAI-Beta": "assistants=v2"
+          },
+          body: JSON.stringify({
+            assistant_id: ASSISTANT_ID
+          })
+        });
+        const runData = await runResponse.json();
+        const runId = runData.id;
+        console.log("Assistant run started with ID:", runId);
+
+        // 4️⃣ Poll for completion (max ~30 seconds)
+        chatBox.innerHTML += `<p><strong>Assistant:</strong> Processing...</p>`;
+        let isCompleted = false;
+        let attempts = 0;
+        const maxAttempts = 15;
+        while (!isCompleted && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 sec
+          const checkRunResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+            headers: {
+              "Authorization": `Bearer ${OPENAI_API_KEY}`,
+              "OpenAI-Beta": "assistants=v2"
+            }
+          });
+          const runStatusData = await checkRunResponse.json();
+          console.log("Run status:", runStatusData);
+
+          if (runStatusData.status === "completed" || runStatusData.status === "succeeded") {
+            isCompleted = true;
+            break;
+          } else if (runStatusData.status === "failed") {
+            chatBox.innerHTML += `<p><strong>Assistant:</strong> Error: The assistant run failed.</p>`;
+            return;
+          }
+          attempts++;
+        }
+        if (!isCompleted) {
+          chatBox.innerHTML += `<p><strong>Assistant:</strong> Error: Timed out waiting for a response.</p>`;
+          return;
+        }
+
+        // 5️⃣ Retrieve all messages from the thread and extract the assistant's reply
+        const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "OpenAI-Beta": "assistants=v2"
+          }
+        });
+        const messagesData = await messagesResponse.json();
+        console.log("Thread messages:", messagesData);
+
+        let assistantMessage = "";
+        for (let i = messagesData.data.length - 1; i >= 0; i--) {
+          if (messagesData.data[i].role === "assistant") {
+            if (Array.isArray(messagesData.data[i].content) && messagesData.data[i].content[0].text) {
+              assistantMessage = messagesData.data[i].content[0].text.value;
+            } else if (typeof messagesData.data[i].content === "string") {
+              assistantMessage = messagesData.data[i].content;
+            }
+            break;
+          }
+        }
+        if (!assistantMessage) {
+          assistantMessage = "No response received from the assistant.";
+        }
+
+        // 6️⃣ Use Marked.js to convert Markdown to HTML and display it
+        const assistantHTML = marked.parse(assistantMessage);
+        chatBox.innerHTML += `<p><strong>Assistant:</strong></p><div>${assistantHTML}</div>`;
+      } catch (error) {
+        console.error("Error:", error);
+        chatBox.innerHTML += `<p><strong>Error:</strong> Something went wrong.</p>`;
+      }
+    }
+  </script>
+</head>
+<body>
+  <h2>OpenAI Assistant</h2>
+  <div id="chat-box"></div>
+  <input type="text" id="user-input" placeholder="Type your message here..." />
+  <button onclick="sendMessage()">Send</button>
+</body>
+</html>
