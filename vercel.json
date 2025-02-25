@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/openai.js", "use": "@vercel/node" },
+    { "src": "connectWithAssistant.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/openai.js" },
+    { "src": "/(.*)", "dest": "/connectWithAssistant.html" }
+  ]
+}
