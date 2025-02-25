@@ -1,42 +1,53 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpenAI Assistant Chat</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
     async function sendMessage() {
-      const userMessage = document.getElementById("user-input").value;
+      const userInput = document.getElementById("user-input");
       const chatBox = document.getElementById("chat-box");
+      const userMessage = userInput.value.trim();
 
-      if (!userMessage.trim()) return;
+      if (!userMessage) return; // Prevent empty messages
 
+      // Display user message
       chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
-      document.getElementById("user-input").value = "";
-
+      userInput.value = "";
       chatBox.innerHTML += `<p><strong>Assistant:</strong> Processing...</p>`;
 
       try {
         const response = await fetch("/api/openai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userMessage })
+          body: JSON.stringify({ userMessage }),
         });
 
-        const responseData = await response.json();
-        chatBox.innerHTML += `<p><strong>Assistant:</strong></p><div>${marked.parse(responseData.result)}</div>`;
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        const data = await response.json();
+        const assistantMessage = data.result || "No response received.";
+
+        // Display assistant response
+        chatBox.innerHTML += `<p><strong>Assistant:</strong></p><div>${marked.parse(assistantMessage)}</div>`;
       } catch (error) {
         console.error("Error:", error);
-        chatBox.innerHTML += `<p><strong>Error:</strong> Something went wrong.</p>`;
+        chatBox.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
       }
     }
   </script>
 </head>
+
 <body>
   <h2>OpenAI Assistant</h2>
   <div id="chat-box"></div>
-  <input type="text" id="user-input" placeholder="Type your message..." />
+  <input type="text" id="user-input" placeholder="Type your message here..." />
   <button onclick="sendMessage()">Send</button>
 </body>
+
 </html>
