@@ -7,7 +7,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
-  const { userMessage } = req.body;
+  // Accept threadId from the client if it exists
+  const { userMessage, threadId } = req.body;
   const apiKey = process.env.OPENAI_API_KEY;
   const assistantId = process.env.YOUR_ASSISTANT_ID;
 
@@ -16,24 +17,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1️⃣ Create conversation thread
-    const threadRes = await fetch("https://api.openai.com/v1/threads", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "OpenAI-Beta": "assistants=v2",
-      },
-    });
+    let currentThreadId = threadId;
 
-    if (!threadRes.ok) {
-      return res.status(500).json({ error: `OpenAI Error: ${await threadRes.text()}` });
+    // Only create a new thread if one is not provided
+    if (!currentThreadId) {
+      const threadRes = await fetch("https://api.openai.com/v1/threads", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "OpenAI-Beta": "assistants=v2",
+        },
+      });
+
+      if (!threadRes.ok) {
+        return res.status(500).json({ error: `OpenAI Error: ${await threadRes.text()}` });
+      }
+
+      const threadData = await threadRes.json();
+      currentThreadId = threadData.id;
     }
 
-    const { id: threadId } = await threadRes.json();
-
-    // 2️⃣ Add user message
-    await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+    // Add the user message to the current thread
+    await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -43,8 +49,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({ role: "user", content: userMessage }),
     });
 
-    // 3️⃣ Start assistant response
-    const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+    // Start assistant response
+    const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -60,20 +66,23 @@ export default async function handler(req, res) {
 
     const { id: runId } = await runRes.json();
 
-    // 4️⃣ Poll for assistant completion (timeout: 10 seconds)
+    // Poll for assistant completion (reduced delay: 1 second, up to 10 attempts)
     let isCompleted = false;
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 20;
 
     while (!isCompleted && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 1 second
 
-      const checkRunRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "OpenAI-Beta": "assistants=v2",
-        },
-      });
+      const checkRunRes = await fetch(
+        `https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "OpenAI-Beta": "assistants=v2",
+          },
+        }
+      );
 
       const runStatusData = await checkRunRes.json();
 
@@ -90,8 +99,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Timeout waiting for assistant response." });
     }
 
-    // 5️⃣ Retrieve assistant response
-    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+    // Retrieve assistant response
+    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "OpenAI-Beta": "assistants=v2",
@@ -105,14 +114,17 @@ export default async function handler(req, res) {
     const messagesData = await messagesRes.json();
     let assistantMessage = "No response received.";
 
+    // Loop in reverse to get the latest assistant message
     for (let msg of messagesData.data.reverse()) {
       if (msg.role === "assistant") {
-        assistantMessage = msg.content?.[0]?.text?.value || msg.content || "No response.";
+        assistantMessage =
+          msg.content?.[0]?.text?.value || msg.content || "No response.";
         break;
       }
     }
 
-    return res.status(200).json({ result: assistantMessage });
+    // Return both the assistant response and the thread id so it can be reused
+    return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
   } catch (error) {
     console.error("Unexpected Error:", error);
     return res.status(500).json({ error: "Unexpected server error." });
