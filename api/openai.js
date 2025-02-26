@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   try {
     let currentThreadId = threadId;
 
-    // Only create a new thread if one is not provided
+    // Create a new thread only if one isn't provided
     if (!currentThreadId) {
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
         method: "POST",
@@ -69,10 +69,10 @@ export default async function handler(req, res) {
     // Poll for assistant completion (reduced delay: 1 second, up to 10 attempts)
     let isCompleted = false;
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 10;
 
     while (!isCompleted && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 1 second
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
 
       const checkRunRes = await fetch(
         `https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`,
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
     const messagesData = await messagesRes.json();
     let assistantMessage = "No response received.";
 
-    // Loop in reverse to get the latest assistant message
+    // Reverse loop to get the latest assistant message
     for (let msg of messagesData.data.reverse()) {
       if (msg.role === "assistant") {
         assistantMessage =
@@ -123,7 +123,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Return both the assistant response and the thread id so it can be reused
+    // Return the assistant response along with the current thread ID
     return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
   } catch (error) {
     console.error("Unexpected Error:", error);
