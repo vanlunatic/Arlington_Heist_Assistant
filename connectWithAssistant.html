@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenAI Assistant Chat</title>
+  <title>Suspect Interrogation</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
     async function sendMessage() {
@@ -17,7 +17,7 @@
       // Display user message
       chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
       userInput.value = "";
-      chatBox.innerHTML += `<p><strong>Assistant:</strong> Processing...</p>`;
+      chatBox.innerHTML += `<p><strong>Assistant:</strong>Suspect Thinking...</p>`;
 
       try {
         const response = await fetch("/api/openai", {
