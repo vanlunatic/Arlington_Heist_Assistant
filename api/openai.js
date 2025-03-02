@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   try {
     let currentThreadId = threadId;
 
-    // 1️⃣ Create a new thread if one does not exist
+    // 1️⃣ Create a new thread if none exists
     if (!currentThreadId) {
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
         method: "POST",
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({ role: "user", content: userMessage }),
     });
 
-    // 3️⃣ Start assistant run
+    // 3️⃣ Start the assistant run
     const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: {
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Timeout waiting for assistant response." });
     }
 
-    // 5️⃣ Fetch assistant's response
+    // 5️⃣ Fetch full conversation history
     const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -121,7 +121,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6️⃣ Return the actual assistant response (Not just "Processing...")
+    // 6️⃣ Return assistant response & thread ID (so history persists)
     return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
   } catch (error) {
     console.error("Unexpected Error:", error);
