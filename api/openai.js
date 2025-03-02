@@ -99,7 +99,7 @@
     }
 
     // 5️⃣ Fetch full conversation history
-    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
+    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages?limit=15`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "OpenAI-Beta": "assistants=v2",
