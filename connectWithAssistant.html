@@ -5,122 +5,191 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Chat Assistant</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f4f4f4;
-            text-align: center;
-            margin: 20px;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
         }
+
         #chat-container {
-            width: 400px;
-            max-width: 100%;
-            margin: auto;
-            background: white;
+            width: 100%;
+            max-width: 450px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #chat-header {
+            background: #007bff;
+            color: #fff;
             padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
         }
+
         #chat-box {
-            height: 300px;
+            flex: 1;
+            padding: 15px;
             overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #ddd;
-            background: #fafafa;
-            margin-bottom: 10px;
+            max-height: 400px;
+            background: #f9f9f9;
         }
-        .user-message, .ai-message {
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 5px;
+
+        .message {
+            max-width: 80%;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.5;
         }
+
         .user-message {
             background: #007bff;
-            color: white;
+            color: #fff;
+            align-self: flex-end;
             text-align: right;
         }
+
         .ai-message {
-            background: #ddd;
+            background: #e5e5ea;
+            color: #333;
+            align-self: flex-start;
             text-align: left;
         }
+
+        #input-container {
+            display: flex;
+            padding: 10px;
+            background: #fff;
+            border-top: 1px solid #ddd;
+        }
+
         #user-input {
-            width: 80%;
+            flex: 1;
             padding: 10px;
-            border-radius: 5px;
             border: 1px solid #ccc;
+            border-radius: 20px;
+            outline: none;
+            font-size: 14px;
+            transition: 0.3s;
         }
+
+        #user-input:focus {
+            border-color: #007bff;
+        }
+
         #send-btn {
-            padding: 10px;
-            background: #28a745;
-            color: white;
+            background: #007bff;
+            color: #fff;
             border: none;
+            padding: 10px 15px;
+            margin-left: 10px;
+            border-radius: 50%;
             cursor: pointer;
-            border-radius: 5px;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
         }
+
+        #send-btn:hover {
+            background: #0056b3;
+        }
+
         #send-btn:disabled {
             background: gray;
             cursor: not-allowed;
         }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            #chat-container {
+                width: 100%;
+                max-width: none;
+                border-radius: 0;
+                height: 100vh;
+            }
+
+            #chat-box {
+                max-height: calc(100vh - 100px);
+            }
+
+            #user-input {
+                font-size: 16px;
+            }
+        }
     </style>
- <script>
-  let threadId = localStorage.getItem("threadId") || null;
+    <script>
+        let threadId = localStorage.getItem("threadId") || null;
 
-async function sendMessage() {
-    const userInput = document.getElementById("user-input").value.trim();
-    if (!userInput) return;
+        async function sendMessage() {
+            const userInput = document.getElementById("user-input").value.trim();
+            if (!userInput) return;
 
-    // Disable button while sending request
-    const sendBtn = document.getElementById("send-btn");
-    sendBtn.disabled = true;
+            const sendBtn = document.getElementById("send-btn");
+            sendBtn.disabled = true;
 
-    // Append user message to chat box
-    appendMessage("user", userInput);
-    document.getElementById("user-input").value = "";
+            appendMessage("user", userInput);
+            document.getElementById("user-input").value = "";
 
-    try {
-        const response = await fetch("/api/openai", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userMessage: userInput, threadId }),
-        });
+            try {
+                const response = await fetch("/api/openai", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userMessage: userInput, threadId }),
+                });
 
-        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+                if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
 
-        const data = await response.json();
-        threadId = data.threadId; // Store thread ID for continuity
-        localStorage.setItem("threadId", threadId);
+                const data = await response.json();
+                threadId = data.threadId;
+                localStorage.setItem("threadId", threadId);
 
-        // Append AI response
-        appendMessage("ai", data.result || "No response from AI.");
-    } catch (error) {
-        console.error("Chat Error:", error);
-        appendMessage("ai", "Error: Unable to get response. Please try again.");
-    }
+                appendMessage("ai", data.result || "No response from AI.");
+            } catch (error) {
+                console.error("Chat Error:", error);
+                appendMessage("ai", "Error: Unable to get response. Please try again.");
+            }
 
-    // Re-enable button
-    sendBtn.disabled = false;
-}
+            sendBtn.disabled = false;
+        }
 
-function appendMessage(sender, text) {
-    const chatBox = document.getElementById("chat-box");
-    const messageDiv = document.createElement("div");
-    messageDiv.className = sender === "user" ? "user-message" : "ai-message";
-    messageDiv.textContent = text;
-    chatBox.appendChild(messageDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
- </script>
+        function appendMessage(sender, text) {
+            const chatBox = document.getElementById("chat-box");
+            const messageDiv = document.createElement("div");
+            messageDiv.className = sender === "user" ? "message user-message" : "message ai-message";
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
 </head>
 <body>
 
 <div id="chat-container">
-    <h2>AI Chat Assistant</h2>
+    <div id="chat-header">AI Chat Assistant</div>
     <div id="chat-box"></div>
-    <input type="text" id="user-input" placeholder="Type a message...">
-    <button id="send-btn" onclick="sendMessage()">Send</button>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMessage()">
+        <button id="send-btn" onclick="sendMessage()">➤</button>
+    </div>
 </div>
-
-
 
 </body>
 </html>
