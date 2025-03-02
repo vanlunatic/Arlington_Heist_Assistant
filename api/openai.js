@@ -1,4 +1,4 @@
- export default async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -7,8 +7,8 @@
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
-  const { userMessage, threadId } = req.body;
-  let currentThreadId = clientThreadId || null;
+  // Extract user input and threadId from request
+  const { userMessage, threadId: clientThreadId } = req.body;
   const apiKey = process.env.OPENAI_API_KEY;
   const assistantId = process.env.YOUR_ASSISTANT_ID;
 
@@ -17,9 +17,9 @@
   }
 
   try {
-    let currentThreadId = threadId;
+    let currentThreadId = clientThreadId || null; // Use existing thread if available
 
-    // 1️⃣ Create a new thread if none exists
+    // ✅ Create new thread if one doesn't exist
     if (!currentThreadId) {
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
         method: "POST",
@@ -38,8 +38,8 @@
       currentThreadId = threadData.id;
     }
 
-    // 2️⃣ Send the user's message to the thread
-    await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages?limit=10`, {
+    // ✅ Send user message to the thread
+    await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -49,7 +49,7 @@
       body: JSON.stringify({ role: "user", content: userMessage }),
     });
 
-    // 3️⃣ Start the assistant run
+    // ✅ Start assistant response
     const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: {
@@ -66,13 +66,14 @@
 
     const { id: runId } = await runRes.json();
 
-    // 4️⃣ Poll for assistant completion (max 10 attempts)
+    // ✅ Optimized polling for assistant completion (up to 15 attempts with 2s delay)
     let isCompleted = false;
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 15; // Increase attempts
+    const delayMs = 2000; // Increase delay to 2s
 
     while (!isCompleted && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 1 second
+      await new Promise(resolve => setTimeout(resolve, delayMs)); // Delay
 
       const checkRunRes = await fetch(
         `https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`,
@@ -99,7 +100,7 @@
       return res.status(500).json({ error: "Timeout waiting for assistant response." });
     }
 
-    // 5️⃣ Fetch full conversation history
+    // ✅ Retrieve assistant response
     const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -114,7 +115,7 @@
     const messagesData = await messagesRes.json();
     let assistantMessage = "No response received.";
 
-    // Reverse loop to get the latest assistant message
+    // ✅ Get the latest assistant message
     for (let msg of messagesData.data.reverse()) {
       if (msg.role === "assistant") {
         assistantMessage = msg.content?.[0]?.text?.value || msg.content || "No response.";
@@ -122,7 +123,7 @@
       }
     }
 
-    // 6️⃣ Return assistant response & thread ID (so history persists)
+    // ✅ Return the assistant response with threadId for persistence
     return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
   } catch (error) {
     console.error("Unexpected Error:", error);
