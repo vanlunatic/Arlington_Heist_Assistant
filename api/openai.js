@@ -68,7 +68,7 @@
     // 4️⃣ Poll for assistant completion (max 10 attempts)
     let isCompleted = false;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20;
 
     while (!isCompleted && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
