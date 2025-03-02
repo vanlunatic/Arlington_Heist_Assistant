@@ -7,7 +7,7 @@
   <title>Interactive Games 360: Arlington Heist</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
-    async function sendMessage() {
+     async function sendMessage() {
       const userInput = document.getElementById("user-input");
       const chatBox = document.getElementById("chat-box");
       const userMessage = userInput.value.trim();
@@ -17,13 +17,14 @@
       // Display user message
       chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
       userInput.value = "";
-     
+
+      let threadId = localStorage.getItem("threadId"); // Retrieve stored threadId
 
       try {
         const response = await fetch("/api/openai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userMessage }),
+          body: JSON.stringify({ userMessage, threadId }), // Send threadId to backend
         });
 
         if (!response.ok) {
@@ -33,6 +34,11 @@
         const data = await response.json();
         const assistantMessage = data.result || "No response received.";
 
+        // Save threadId in localStorage for future messages
+        if (data.threadId) {
+          localStorage.setItem("threadId", data.threadId);
+        }
+
         // Display assistant response
         chatBox.innerHTML += `<p><strong>Assistant:</strong></p><div>${marked.parse(assistantMessage)}</div>`;
       } catch (error) {
@@ -40,6 +46,7 @@
         chatBox.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
       }
     }
+
   </script>
 </head>
 
