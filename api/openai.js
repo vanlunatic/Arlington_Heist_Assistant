@@ -71,7 +71,7 @@
     const maxAttempts = 10;
 
     while (!isCompleted && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 1 second
 
       const checkRunRes = await fetch(
         `https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`,
