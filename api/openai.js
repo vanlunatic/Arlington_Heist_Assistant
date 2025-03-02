@@ -8,6 +8,7 @@
   }
 
   const { userMessage, threadId } = req.body;
+  let currentThreadId = clientThreadId || null;
   const apiKey = process.env.OPENAI_API_KEY;
   const assistantId = process.env.YOUR_ASSISTANT_ID;
 
