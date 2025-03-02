@@ -38,7 +38,7 @@
     }
 
     // 2️⃣ Send the user's message to the thread
-    await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
+    await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages?limit=10`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -68,7 +68,7 @@
     // 4️⃣ Poll for assistant completion (max 10 attempts)
     let isCompleted = false;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 5;
 
     while (!isCompleted && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 1 second
