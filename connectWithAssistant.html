@@ -7,45 +7,41 @@
   <title>Interactive Games 360: Arlington Heist</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
-     async function sendMessage() {
-      const userInput = document.getElementById("user-input");
-      const chatBox = document.getElementById("chat-box");
-      const userMessage = userInput.value.trim();
+     let threadId = localStorage.getItem("threadId") || null;  // ✅ Store threadId in localStorage
 
-      if (!userMessage) return; // Prevent empty messages
+async function sendMessage() {
+  const userInput = document.getElementById("user-input");
+  const chatBox = document.getElementById("chat-box");
+  const userMessage = userInput.value.trim();
 
-      // Display user message
-      chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
-      userInput.value = "";
+  if (!userMessage) return;
 
-      let threadId = localStorage.getItem("threadId"); // Retrieve stored threadId
+  chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
+  userInput.value = "";
 
-      try {
-        const response = await fetch("/api/openai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userMessage, threadId }), // Send threadId to backend
-        });
+  try {
+    const response = await fetch("/api/openai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userMessage, threadId }),  // ✅ Send threadId with request
+    });
 
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-
-        const data = await response.json();
-        const assistantMessage = data.result || "No response received.";
-
-        // Save threadId in localStorage for future messages
-        if (data.threadId) {
-          localStorage.setItem("threadId", data.threadId);
-        }
-
-        // Display assistant response
-        chatBox.innerHTML += `<p><strong>Assistant:</strong></p><div>${marked.parse(assistantMessage)}</div>`;
-      } catch (error) {
-        console.error("Error:", error);
-        chatBox.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
-      }
+    if (!response.ok) {
+      throw new Error(await response.text());
     }
+
+    const data = await response.json();
+    const assistantMessage = data.result || "No response received.";
+    threadId = data.threadId;  // ✅ Update threadId
+    localStorage.setItem("threadId", threadId);  // ✅ Store it for future messages
+
+    chatBox.innerHTML += `<p><strong>Assistant:</strong> ${assistantMessage}</p>`;
+  } catch (error) {
+    console.error("Error:", error);
+    chatBox.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
+  }
+}
+
 
   </script>
 </head>
