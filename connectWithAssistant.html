@@ -85,50 +85,78 @@
             background: #555;
         }
     </style>
-    <script>
-        let threadId = localStorage.getItem("threadId") || null;
+   <script>
+    let threadId = localStorage.getItem("threadId") || null;
 
-        async function sendMessage() {
-            const userInput = document.getElementById("user-input").value.trim();
-            if (!userInput) return;
+    async function sendMessage() {
+        const userInput = document.getElementById("user-input").value.trim();
+        if (!userInput) return;
 
-            const sendBtn = document.getElementById("send-btn");
-            sendBtn.disabled = true;
+        const sendBtn = document.getElementById("send-btn");
+        sendBtn.disabled = true;
 
-            appendMessage("user", userInput);
-            document.getElementById("user-input").value = "";
+        appendMessage("user", userInput);
+        document.getElementById("user-input").value = "";
 
-            try {
-                const response = await fetch("/api/openai", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userMessage: userInput, threadId }),
-                });
+        try {
+            const response = await fetch("/api/openai", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userMessage: userInput, threadId }),
+            });
 
-                if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
-
-                const data = await response.json();
-                threadId = data.threadId;
-                localStorage.setItem("threadId", threadId);
-
-                appendMessage("ai", data.result || "No response from AI.");
-            } catch (error) {
-                console.error("Chat Error:", error);
-                appendMessage("ai", "Error: Unable to get response. Please try again.");
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} - ${response.statusText}`);
             }
 
-            sendBtn.disabled = false;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let aiMessage = "";
+
+            appendMessage("ai", "Thinking..."); // Temporary message
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                aiMessage += decoder.decode(value, { stream: true });
+                updateLastMessage("ai", aiMessage);
+            }
+
+            const data = JSON.parse(aiMessage);
+            threadId = data.threadId;
+            localStorage.setItem("threadId", threadId);
+
+            updateLastMessage("ai", data.result || "No response from AI.");
+        } catch (error) {
+            console.error("Chat Error:", error);
+            updateLastMessage("ai", "Error: Unable to get response. Please try again.");
         }
 
-        function appendMessage(sender, text) {
-            const chatBox = document.getElementById("chat-box");
-            const messageDiv = document.createElement("div");
-            messageDiv.className = sender === "user" ? "message user-message" : "message ai-message";
-            messageDiv.textContent = text;
-            chatBox.appendChild(messageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
+        sendBtn.disabled = false;
+    }
+
+    function appendMessage(sender, text) {
+        const chatBox = document.getElementById("chat-box");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = sender === "user" ? "message user-message" : "message ai-message";
+        messageDiv.textContent = text;
+        messageDiv.dataset.sender = sender;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function updateLastMessage(sender, text) {
+        const chatBox = document.getElementById("chat-box");
+        const messages = chatBox.getElementsByClassName("message");
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].dataset.sender === sender) {
+                messages[i].textContent = text;
+                break;
+            }
         }
-    </script>
+    }
+</script>
+
 </head>
 <body>
 
