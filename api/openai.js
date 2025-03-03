@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  // CORS Headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -7,17 +8,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
+  // Extract request data
   const { userMessage, threadId: clientThreadId } = req.body;
   const apiKey = process.env.OPENAI_API_KEY;
   const assistantId = process.env.YOUR_ASSISTANT_ID;
 
+  // Check API Credentials
   if (!apiKey || !assistantId) {
-    return res.status(500).json({ error: "Missing API credentials" });
+    console.error("Missing OpenAI API Key or Assistant ID.");
+    return res.status(500).json({ error: "Server Misconfiguration: API credentials missing." });
   }
 
   try {
     let currentThreadId = clientThreadId || null;
 
+    // 🔹 Create a new thread if it doesn't exist
     if (!currentThreadId) {
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
         method: "POST",
@@ -29,13 +34,16 @@ export default async function handler(req, res) {
       });
 
       if (!threadRes.ok) {
-        return res.status(500).json({ error: `OpenAI Error: ${await threadRes.text()}` });
+        const errorText = await threadRes.text();
+        console.error("OpenAI Thread Creation Error:", errorText);
+        return res.status(500).json({ error: `OpenAI Thread Error: ${errorText}` });
       }
 
       const threadData = await threadRes.json();
       currentThreadId = threadData.id;
     }
 
+    // 🔹 Send user message to OpenAI
     await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       method: "POST",
       headers: {
@@ -46,6 +54,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({ role: "user", content: userMessage }),
     });
 
+    // 🔹 Run the Assistant
     const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: {
@@ -57,14 +66,18 @@ export default async function handler(req, res) {
     });
 
     if (!runRes.ok) {
-      return res.status(500).json({ error: `Run Error: ${await runRes.text()}` });
+      const errorText = await runRes.text();
+      console.error("OpenAI Run Error:", errorText);
+      return res.status(500).json({ error: `Run Error: ${errorText}` });
     }
 
     const { id: runId } = await runRes.json();
+    
+    // 🔹 Wait for the Assistant's response
     let isCompleted = false;
     let attempts = 0;
-    const maxAttempts = 10;
-    const delayMs = 1500;
+    const maxAttempts = 6; // Reduced to prevent timeouts
+    const delayMs = 2500;  // Increased delay for better efficiency
 
     while (!isCompleted && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -80,20 +93,24 @@ export default async function handler(req, res) {
       );
 
       const runStatusData = await checkRunRes.json();
+      console.log(`🔄 Polling Attempt ${attempts + 1}:`, runStatusData.status);
 
       if (runStatusData.status === "completed" || runStatusData.status === "succeeded") {
         isCompleted = true;
         break;
-      } else if (runStatusData.status === "failed") {
-        return res.status(500).json({ error: "Assistant run failed." });
+      } else if (runStatusData.status === "failed" || runStatusData.status === "expired") {
+        console.error("Assistant failed or expired:", runStatusData);
+        return res.status(500).json({ error: "Assistant run failed or expired." });
       }
+
       attempts++;
     }
 
     if (!isCompleted) {
-      return res.status(500).json({ error: "Timeout waiting for assistant response." });
+      return res.status(500).json({ error: "Timeout: Assistant response took too long." });
     }
 
+    // 🔹 Retrieve Assistant Response
     const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -102,7 +119,9 @@ export default async function handler(req, res) {
     });
 
     if (!messagesRes.ok) {
-      return res.status(500).json({ error: `Message Fetch Error: ${await messagesRes.text()}` });
+      const errorText = await messagesRes.text();
+      console.error("OpenAI Message Fetch Error:", errorText);
+      return res.status(500).json({ error: `Message Fetch Error: ${errorText}` });
     }
 
     const messagesData = await messagesRes.json();
@@ -110,14 +129,14 @@ export default async function handler(req, res) {
 
     for (let msg of messagesData.data.reverse()) {
       if (msg.role === "assistant") {
-        assistantMessage = Array.isArray(msg.content) ? msg.content[0]?.text?.value : msg.content;
+        assistantMessage = msg.content?.[0]?.text?.value || msg.content || "No response.";
         break;
       }
     }
 
     return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
   } catch (error) {
-    console.error("Unexpected Error:", error);
-    return res.status(500).json({ error: "Unexpected server error." });
+    console.error("❌ Unexpected Server Error:", error);
+    return res.status(500).json({ error: "Unexpected server error. Please try again later." });
   }
 }
