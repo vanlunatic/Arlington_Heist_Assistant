@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     let isCompleted = false;
     let attempts = 0;
     const maxAttempts = 6;
-    const delayMs = 2500;
+    const delayMs = 3000;
 
     while (!isCompleted && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Timeout: Assistant response took too long." });
     }
 
-    // 🔹 Step 5: Retrieve Assistant Response (Fix: Get the Last Assistant Message)
+    // 🔹 Step 5: Retrieve the Latest Assistant Response
     const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -123,13 +123,14 @@ export default async function handler(req, res) {
     const messagesData = await messagesRes.json();
     let assistantMessage = "No response received.";
 
+    // 🔥 Fix: Ensure we get the most recent AI response
     const assistantReplies = messagesData.data
       .filter(msg => msg.role === "assistant")
       .map(msg => msg.content?.[0]?.text?.value)
       .filter(Boolean);
 
     if (assistantReplies.length > 0) {
-      assistantMessage = assistantReplies[assistantReplies.length - 1]; // Get the last assistant message
+      assistantMessage = assistantReplies.pop(); // Get the most recent assistant message
     }
 
     return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
