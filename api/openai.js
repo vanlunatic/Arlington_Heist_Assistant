@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -58,7 +58,14 @@ export default async function handler(req, res) {
         }
 
         const messagesData = await messagesRes.json();
-        let assistantMessage = messagesData.data?.find(msg => msg.role === "assistant")?.content?.[0]?.text?.value || "No response.";
+        let assistantMessage = "No response received.";
+
+        for (let msg of messagesData.data.reverse()) {
+            if (msg.role === "assistant") {
+                assistantMessage = msg.content?.[0]?.text?.value || msg.content || "No response.";
+                break;
+            }
+        }
 
         return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
     } catch (error) {
