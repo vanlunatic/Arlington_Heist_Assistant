@@ -12,13 +12,14 @@ export default async function handler(req, res) {
   const assistantId = process.env.YOUR_ASSISTANT_ID;
 
   if (!apiKey || !assistantId) {
-    console.error("Missing OpenAI API Key or Assistant ID.");
+    console.error("🚨 Missing OpenAI API Key or Assistant ID.");
     return res.status(500).json({ error: "Server Misconfiguration: API credentials missing." });
   }
 
   try {
     let currentThreadId = clientThreadId || null;
 
+    // 🆕 Always create a new thread for fresh interactions to avoid repetition issues
     if (!currentThreadId) {
       console.log("🆕 Creating a new thread...");
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
     let isCompleted = false;
     let attempts = 0;
     const maxAttempts = 6;
-    const delayMs = 4000; // Increased delay for stability
+    const delayMs = 5000; // Adjusted delay for better stability
 
     while (!isCompleted && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -90,7 +91,7 @@ export default async function handler(req, res) {
       );
 
       const runStatusData = await checkRunRes.json();
-      console.log(`🔄 Attempt ${attempts + 1}:`, runStatusData.status);
+      console.log(`🔄 Attempt ${attempts + 1}: ${runStatusData.status}`);
 
       if (runStatusData.status === "completed" || runStatusData.status === "succeeded") {
         isCompleted = true;
@@ -125,7 +126,9 @@ export default async function handler(req, res) {
     const messagesData = await messagesRes.json();
     let assistantMessage = "No response received.";
 
-    for (let msg of messagesData.data.reverse()) {
+    // ✅ FIX: Fetching the most recent assistant response
+    const latestMessages = messagesData.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    for (let msg of latestMessages) {
       if (msg.role === "assistant") {
         assistantMessage = msg.content?.[0]?.text?.value || msg.content || "No response.";
         break;
