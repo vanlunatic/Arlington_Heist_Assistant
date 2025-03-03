@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     try {
         let currentThreadId = clientThreadId || null;
 
-        // ✅ Create a new thread if one doesn't exist
+        // ✅ Create a new thread if not provided
         if (!currentThreadId) {
             const threadRes = await fetch("https://api.openai.com/v1/threads", {
                 method: "POST",
@@ -35,16 +35,6 @@ export default async function handler(req, res) {
 
             const threadData = await threadRes.json();
             currentThreadId = threadData.id;
-        }
-
-        // ✅ Fetch thread messages to check length
-        const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
-            headers: { Authorization: `Bearer ${apiKey}`, "OpenAI-Beta": "assistants=v2" },
-        });
-
-        const messagesData = await messagesRes.json();
-        if (messagesData.data.length > 10) { // Reset thread if it exceeds 10 messages
-            currentThreadId = null;
         }
 
         // ✅ Send user message
@@ -75,7 +65,7 @@ export default async function handler(req, res) {
 
         const { id: runId } = await runRes.json();
 
-        // ✅ Optimized polling for assistant completion (exponential backoff)
+        // ✅ Optimized polling for assistant response (exponential backoff)
         let isCompleted = false;
         let attempts = 0;
         const maxAttempts = 10;
