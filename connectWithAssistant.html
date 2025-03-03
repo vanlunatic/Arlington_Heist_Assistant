@@ -7,31 +7,30 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            background: #f4f4f4;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background: #f4f4f4;
         }
         #chat-container {
             width: 100%;
             max-width: 500px;
             background: white;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
         }
         #chat-box {
             height: 400px;
             overflow-y: auto;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
         }
         .message {
             padding: 10px;
-            margin: 5px;
             border-radius: 5px;
-            max-width: 80%;
+            margin: 5px 0;
         }
         .user-message { background: #007bff; color: white; text-align: right; }
         .ai-message { background: #ddd; text-align: left; }
@@ -39,56 +38,64 @@
             display: flex;
             margin-top: 10px;
         }
-        input, button {
+        #user-input {
+            flex: 1;
             padding: 10px;
-            border: none;
+            border: 1px solid #ccc;
             border-radius: 5px;
         }
-        input { flex: 1; border: 1px solid #ccc; }
-        button { background: #007bff; color: white; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        #send-btn {
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+        }
     </style>
+    <script>
+        let threadId = localStorage.getItem("threadId") || null;
+
+        async function sendMessage() {
+            const userInput = document.getElementById("user-input").value.trim();
+            if (!userInput) return;
+
+            appendMessage("user", userInput);
+            document.getElementById("user-input").value = "";
+
+            try {
+                const response = await fetch("/api/openai", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userMessage: userInput, threadId }),
+                });
+
+                const data = await response.json();
+                threadId = data.threadId;
+                localStorage.setItem("threadId", threadId);
+                appendMessage("ai", data.result);
+            } catch (error) {
+                appendMessage("ai", "Error. Please try again.");
+            }
+        }
+
+        function appendMessage(sender, text) {
+            const chatBox = document.getElementById("chat-box");
+            const messageDiv = document.createElement("div");
+            messageDiv.className = sender === "user" ? "message user-message" : "message ai-message";
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
 </head>
 <body>
-
 <div id="chat-container">
     <div id="chat-box"></div>
     <div id="input-container">
         <input type="text" id="user-input" placeholder="Type a message...">
-        <button onclick="sendMessage()">Send</button>
+        <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
 </div>
-
-<script>
-    let threadId = localStorage.getItem("threadId") || null;
-
-    async function sendMessage() {
-        const userInput = document.getElementById("user-input").value.trim();
-        if (!userInput) return;
-
-        document.getElementById("user-input").value = "";
-        appendMessage("user", userInput);
-
-        try {
-            const response = await fetch("/api/openai", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userMessage: userInput, threadId }),
-            });
-
-            const data = await response.json();
-            threadId = data.threadId;
-            localStorage.setItem("threadId", threadId);
-            appendMessage("ai", data.result);
-        } catch {
-            appendMessage("ai", "Error. Please try again.");
-        }
-    }
-
-    function appendMessage(sender, text) {
-        document.getElementById("chat-box").innerHTML += `<div class="message ${sender}-message">${text}</div>`;
-    }
-</script>
-
 </body>
 </html>
