@@ -3,164 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat Assistant</title>
+    <title>AI Chatbot</title>
     <style>
-       * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: url('https://www.transparenttextures.com/patterns/aged-paper.png');
-            font-family: 'Special Elite', cursive;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 20px;
-        }
-        #chat-container {
-            width: 100%;
-            max-width: 500px;
-            background: rgba(255, 255, 240, 0.95);
-            border: 2px solid #333;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.2);
-        }
-        #chat-header {
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            padding-bottom: 10px;
-            border-bottom: 2px dashed #333;
-        }
-        #chat-box {
-            height: 350px;
-            overflow-y: auto;
-            padding: 15px;
-            background: rgba(255, 255, 230, 0.8);
-            border: 1px solid #999;
-            margin: 10px 0;
-        }
-        .message {
-            max-width: 80%;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 8px 0;
-        }
-        .user-message {
-            background: #444;
-            color: #fff;
-            align-self: flex-end;
-            text-align: right;
-        }
-        .ai-message {
-            background: #ccc;
-            align-self: flex-start;
-            text-align: left;
-        }
-        #input-container {
-            display: flex;
-            gap: 10px;
-        }
-        #user-input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #555;
-            border-radius: 5px;
-            font-family: 'Special Elite', cursive;
-        }
-        #send-btn {
-            padding: 10px 15px;
-            background: #333;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-            font-family: 'Special Elite', cursive;
-        }
-        #send-btn:hover {
-            background: #555;
-        }
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+        #chat-container { width: 100%; max-width: 450px; padding: 20px; background: #fff; box-shadow: 0px 4px 8px rgba(0,0,0,0.2); border-radius: 10px; display: flex; flex-direction: column; }
+        #chat-box { height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background: #fafafa; flex-grow: 1; }
+        .message { padding: 8px; margin: 5px; border-radius: 5px; max-width: 80%; }
+        .user-message { background: #007bff; color: white; align-self: flex-end; }
+        .ai-message { background: #ddd; align-self: flex-start; }
+        #input-area { display: flex; margin-top: 10px; }
+        #user-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        #send-btn { padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; margin-left: 10px; border-radius: 5px; }
     </style>
-  <script>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="chat-box"></div>
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMessage()">
+        <button id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
     let threadId = localStorage.getItem("threadId") || null;
 
     async function sendMessage() {
         const userInput = document.getElementById("user-input").value.trim();
         if (!userInput) return;
 
-        const sendBtn = document.getElementById("send-btn");
-        sendBtn.disabled = true;
-
         appendMessage("user", userInput);
         document.getElementById("user-input").value = "";
 
-        let attempts = 3; // Max retries
-        let success = false;
+        const response = await fetch("/api/openai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userMessage: userInput, threadId }),
+        });
 
-        while (attempts > 0 && !success) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        const data = await response.json();
+        threadId = data.threadId;
+        localStorage.setItem("threadId", threadId);
 
-                const response = await fetch("/api/openai", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userMessage: userInput, threadId }),
-                    signal: controller.signal,
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status} - ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                threadId = data.threadId;
-                localStorage.setItem("threadId", threadId);
-
-                appendMessage("ai", data.result || "No response from AI.");
-                success = true;
-            } catch (error) {
-                console.error("Chat Error:", error);
-                appendMessage("ai", `Error: ${error.message}. Retrying...`);
-                attempts--;
-            }
-        }
-
-        if (!success) {
-            appendMessage("ai", "Error: Server is not responding. Please try again later.");
-        }
-
-        sendBtn.disabled = false;
+        appendMessage("ai", data.result || "No response.");
     }
 
     function appendMessage(sender, text) {
         const chatBox = document.getElementById("chat-box");
         const messageDiv = document.createElement("div");
-        messageDiv.className = sender === "user" ? "message user-message" : "message ai-message";
+        messageDiv.className = `message ${sender}-message`;
         messageDiv.textContent = text;
         chatBox.appendChild(messageDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 </script>
-
-
-</head>
-<body>
-
-<div id="chat-container">
-    <div id="chat-header">AI Chat Assistant</div>
-    <div id="chat-box"></div>
-    <div id="input-container">
-        <input type="text" id="user-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMessage()">
-        <button id="send-btn" onclick="sendMessage()">➤</button>
-    </div>
-</div>
 
 </body>
 </html>
