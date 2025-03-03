@@ -18,15 +18,10 @@ export default async function handler(req, res) {
     try {
         let currentThreadId = clientThreadId || null;
 
-        // ✅ Create a new thread if not provided
         if (!currentThreadId) {
             const threadRes = await fetch("https://api.openai.com/v1/threads", {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                    "OpenAI-Beta": "assistants=v2",
-                },
+                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "OpenAI-Beta": "assistants=v2" },
             });
 
             if (!threadRes.ok) {
@@ -37,25 +32,15 @@ export default async function handler(req, res) {
             currentThreadId = threadData.id;
         }
 
-        // ✅ Send user message
         await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
             method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "OpenAI-Beta": "assistants=v2",
-            },
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "OpenAI-Beta": "assistants=v2" },
             body: JSON.stringify({ role: "user", content: userMessage }),
         });
 
-        // ✅ Start assistant response
         const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
             method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "OpenAI-Beta": "assistants=v2",
-            },
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "OpenAI-Beta": "assistants=v2" },
             body: JSON.stringify({ assistant_id: assistantId }),
         });
 
@@ -64,14 +49,11 @@ export default async function handler(req, res) {
         }
 
         const { id: runId } = await runRes.json();
-
-        // ✅ Optimized polling for assistant response (exponential backoff)
         let isCompleted = false;
         let attempts = 0;
-        const maxAttempts = 10;
         const delayMs = [500, 1000, 2000, 3000, 5000];
 
-        while (!isCompleted && attempts < maxAttempts) {
+        while (!isCompleted && attempts < 10) {
             await new Promise(resolve => setTimeout(resolve, delayMs[Math.min(attempts, delayMs.length - 1)]));
 
             const checkRunRes = await fetch(
@@ -90,7 +72,6 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: "Timeout waiting for assistant response." });
         }
 
-        // ✅ Retrieve assistant response
         const finalMessagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
             headers: { Authorization: `Bearer ${apiKey}`, "OpenAI-Beta": "assistants=v2" },
         });
