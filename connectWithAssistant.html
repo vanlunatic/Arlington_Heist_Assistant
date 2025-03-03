@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -20,7 +20,7 @@
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
         }
         #chat-box {
             height: 400px;
@@ -40,6 +40,7 @@
             color: white;
             text-align: right;
             align-self: flex-end;
+            margin-left: auto;
         }
         .ai-message {
             background: #ddd;
@@ -65,30 +66,23 @@
             margin-left: 10px;
             border-radius: 5px;
         }
-        #send-btn:disabled {
-            background: #aaa;
-            cursor: not-allowed;
-        }
     </style>
-</head>
-<body>
-    <div id="chat-container">
-        <div id="chat-box"></div>
-        <div id="input-container">
-            <input type="text" id="user-input" placeholder="Type a message...">
-            <button id="send-btn" onclick="sendMessage()">Send</button>
-        </div>
-    </div>
-
     <script>
         let threadId = localStorage.getItem("threadId") || null;
+        let chatHistory = JSON.parse(localStorage.getItem("chatHistory")) || [];
+
+        function renderChatHistory() {
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML = "";
+            chatHistory.forEach(({ sender, text }) => appendMessage(sender, text, false));
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
 
         async function sendMessage() {
             const userInput = document.getElementById("user-input").value.trim();
             if (!userInput) return;
 
-            const sendBtn = document.getElementById("send-btn");
-            sendBtn.disabled = true;
+            document.getElementById("send-btn").disabled = true;
             appendMessage("user", userInput);
             document.getElementById("user-input").value = "";
 
@@ -99,29 +93,47 @@
                     body: JSON.stringify({ userMessage: userInput, threadId }),
                 });
 
-                if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+                }
 
                 const data = await response.json();
-                threadId = data.threadId || threadId;
+                threadId = data.threadId;
                 localStorage.setItem("threadId", threadId);
 
                 appendMessage("ai", data.result || "No response from AI.");
             } catch (error) {
+                appendMessage("ai", "Error: Server is not responding. Please try again later.");
                 console.error("Chat Error:", error);
-                appendMessage("ai", "Error: Unable to fetch response.");
             }
 
-            sendBtn.disabled = false;
+            document.getElementById("send-btn").disabled = false;
         }
 
-        function appendMessage(sender, text) {
+        function appendMessage(sender, text, save = true) {
             const chatBox = document.getElementById("chat-box");
             const messageDiv = document.createElement("div");
             messageDiv.className = sender === "user" ? "message user-message" : "message ai-message";
             messageDiv.textContent = text;
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
+
+            if (save) {
+                chatHistory.push({ sender, text });
+                localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+            }
         }
+
+        window.onload = renderChatHistory;
     </script>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chat-box"></div>
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="Type a message...">
+            <button id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
 </body>
 </html>
