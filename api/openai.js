@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: Method ${req.method} Not Allowed });
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
   const { userMessage, threadId: clientThreadId } = req.body;
@@ -22,34 +22,34 @@ export default async function handler(req, res) {
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
         method: "POST",
         headers: {
-          Authorization: Bearer ${apiKey},
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "OpenAI-Beta": "assistants=v2",
         },
       });
 
       if (!threadRes.ok) {
-        return res.status(500).json({ error: OpenAI Error: ${await threadRes.text()} });
+        return res.status(500).json({ error: `OpenAI Error: ${await threadRes.text()}` });
       }
 
       const threadData = await threadRes.json();
       currentThreadId = threadData.id;
     }
 
-    await fetch(https://api.openai.com/v1/threads/${currentThreadId}/messages, {
+    await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       method: "POST",
       headers: {
-        Authorization: Bearer ${apiKey},
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "OpenAI-Beta": "assistants=v2",
       },
       body: JSON.stringify({ role: "user", content: userMessage }),
     });
 
-    const runRes = await fetch(https://api.openai.com/v1/threads/${currentThreadId}/runs, {
+    const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: {
-        Authorization: Bearer ${apiKey},
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "OpenAI-Beta": "assistants=v2",
       },
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     });
 
     if (!runRes.ok) {
-      return res.status(500).json({ error: Run Error: ${await runRes.text()} });
+      return res.status(500).json({ error: `Run Error: ${await runRes.text()}` });
     }
 
     const { id: runId } = await runRes.json();
@@ -70,10 +70,10 @@ export default async function handler(req, res) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
 
       const checkRunRes = await fetch(
-        https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId},
+        `https://api.openai.com/v1/threads/${currentThreadId}/runs/${runId}`,
         {
           headers: {
-            Authorization: Bearer ${apiKey},
+            Authorization: `Bearer ${apiKey}`,
             "OpenAI-Beta": "assistants=v2",
           },
         }
@@ -94,15 +94,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Timeout waiting for assistant response." });
     }
 
-    const messagesRes = await fetch(https://api.openai.com/v1/threads/${currentThreadId}/messages, {
+    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
-        Authorization: Bearer ${apiKey},
+        Authorization: `Bearer ${apiKey}`,
         "OpenAI-Beta": "assistants=v2",
       },
     });
 
     if (!messagesRes.ok) {
-      return res.status(500).json({ error: Message Fetch Error: ${await messagesRes.text()} });
+      return res.status(500).json({ error: `Message Fetch Error: ${await messagesRes.text()}` });
     }
 
     const messagesData = await messagesRes.json();
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
 
     for (let msg of messagesData.data.reverse()) {
       if (msg.role === "assistant") {
-        assistantMessage = msg.content?.[0]?.text?.value || msg.content || "No response.";
+        assistantMessage = Array.isArray(msg.content) ? msg.content[0]?.text?.value : msg.content;
         break;
       }
     }
