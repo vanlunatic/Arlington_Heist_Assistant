@@ -83,14 +83,15 @@
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
-                    throw new Error(Server error: ${response.status} - ${response.statusText});
+                    throw new Error(`Server error: ${response.status} - ${response.statusText}`);
                 }
 
                 const data = await response.json();
                 threadId = data.threadId || threadId;
                 localStorage.setItem("threadId", threadId);
 
-                appendMessage("ai", data.result || "No response from AI.");
+                 appendMessage("ai", `Error: ${error.message}. Retrying...`);
+
                 success = true;
             } catch (error) {
                 console.error("Chat Error:", error);
