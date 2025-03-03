@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // CORS Headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -20,7 +19,7 @@ export default async function handler(req, res) {
   try {
     let currentThreadId = clientThreadId || null;
 
-    // 🔹 Step 1: Create a new thread if one does not exist
+    // 🔹 Step 1: Create a new thread if needed
     if (!currentThreadId) {
       const threadRes = await fetch("https://api.openai.com/v1/threads", {
         method: "POST",
@@ -32,7 +31,7 @@ export default async function handler(req, res) {
       });
 
       if (!threadRes.ok) {
-        console.error("❌ OpenAI Thread Creation Error:", await threadRes.text());
+        console.error("❌ Thread Creation Error:", await threadRes.text());
         return res.status(500).json({ error: "Failed to create thread with OpenAI." });
       }
 
@@ -52,7 +51,7 @@ export default async function handler(req, res) {
     });
 
     if (!messageRes.ok) {
-      console.error("❌ OpenAI Message Error:", await messageRes.text());
+      console.error("❌ Message Error:", await messageRes.text());
       return res.status(500).json({ error: "Failed to send message to OpenAI." });
     }
 
@@ -68,7 +67,7 @@ export default async function handler(req, res) {
     });
 
     if (!runRes.ok) {
-      console.error("❌ OpenAI Run Error:", await runRes.text());
+      console.error("❌ Run Error:", await runRes.text());
       return res.status(500).json({ error: "Failed to run assistant." });
     }
 
@@ -108,7 +107,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Timeout: Assistant response took too long." });
     }
 
-    // 🔹 Step 5: Retrieve Assistant Response
+    // 🔹 Step 5: Retrieve Assistant Response (Fix: Get the Last Assistant Message)
     const messagesRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/messages`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -117,16 +116,20 @@ export default async function handler(req, res) {
     });
 
     if (!messagesRes.ok) {
-      console.error("❌ OpenAI Message Fetch Error:", await messagesRes.text());
+      console.error("❌ Message Fetch Error:", await messagesRes.text());
       return res.status(500).json({ error: "Failed to fetch messages." });
     }
 
     const messagesData = await messagesRes.json();
     let assistantMessage = "No response received.";
-    const assistantReplies = messagesData.data.filter(msg => msg.role === "assistant");
+
+    const assistantReplies = messagesData.data
+      .filter(msg => msg.role === "assistant")
+      .map(msg => msg.content?.[0]?.text?.value)
+      .filter(Boolean);
 
     if (assistantReplies.length > 0) {
-      assistantMessage = assistantReplies[assistantReplies.length - 1]?.content?.[0]?.text?.value || "No response.";
+      assistantMessage = assistantReplies[assistantReplies.length - 1]; // Get the last assistant message
     }
 
     return res.status(200).json({ result: assistantMessage, threadId: currentThreadId });
