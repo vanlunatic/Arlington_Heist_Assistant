@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,7 @@
         /* General Styles */
         body { 
             font-family: 'Poppins', sans-serif;
-            background: #f9f9fb;
+            background: #f4f7fc;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -19,14 +19,24 @@
         /* Chat Container */
         #chat-container { 
             width: 100%;
-            max-width: 450px;
-            background: #fff;
+            max-width: 500px;
+            background: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            height: 80vh;
+            height: 90vh;
+        }
+
+        /* Header */
+        #chat-header {
+            background: #007bff;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: 600;
         }
 
         /* Chat Box */
@@ -39,14 +49,17 @@
             flex-direction: column;
             gap: 10px;
             scroll-behavior: smooth;
+            background: #f9f9f9;
         }
 
         .message {
-            padding: 10px 15px;
+            padding: 12px 15px;
             border-radius: 20px;
             max-width: 80%;
             word-wrap: break-word;
             font-size: 14px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease-in-out;
         }
 
         .user-message { 
@@ -56,7 +69,7 @@
         }
 
         .ai-message { 
-            background: #f1f1f1;
+            background: #e9ecef;
             align-self: flex-start;
             color: #333;
         }
@@ -65,7 +78,7 @@
         .input-container {
             display: flex;
             padding: 12px;
-            background: #fff;
+            background: white;
             border-top: 1px solid #ddd;
         }
 
@@ -99,11 +112,30 @@
             background: #0056b3;
         }
 
+        /* Footer */
+        #chat-footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            background: #f1f1f1;
+            color: #555;
+        }
+
+        /* Smooth Message Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* Responsive Design */
         @media screen and (max-width: 500px) {
             #chat-container {
                 width: 95%;
-                height: 90vh;
+                height: 95vh;
+            }
+            #chat-header {
+                font-size: 16px;
+                padding: 12px;
             }
         }
     </style>
@@ -140,11 +172,15 @@
         }
     </script>
 </head>
-<body>
-<div id="chat-container">
-    <div id="chat-box"></div>
-    <input id="user-input" type="text" placeholder="Type a message...">
-    <button id="send-btn" onclick="sendMessage()">Send</button>
-</div>
+ <body>
+    <div id="chat-container">
+        <div id="chat-header">💬 AI Chat Assistant</div>
+        <div id="chat-box"></div>
+        <div class="input-container">
+            <input id="user-input" type="text" placeholder="Type a message..." autocomplete="off">
+            <button id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+        <div id="chat-footer">© 2025 AI Chat Assistant. All rights reserved.</div>
+    </div>
 </body>
 </html>
